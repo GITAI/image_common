@@ -103,6 +103,16 @@ int main(int argc, char** argv)
   // remap 'in', 'out' topic into ~in, ~out for backward compatibility
   nodelet::M_string remappings;
   remapToPrivate(ros::names::getRemappings(), remappings);
+  {
+    std::string key = ns::join(ros::this_node::getName(), "in");
+    if (remappings.count(key) == 0)
+      remappings[key] = ns::join(ros::this_node::getNamespace(), "in");
+  }
+  {
+    std::string key = ns::join(ros::this_node::getName(), "out");
+    if (remappings.count(key) == 0)
+      remappings[key] = ns::join(ros::this_node::getNamespace(), "out");
+  }
 
   loader.load(ros::this_node::getName(),
               "image_transport/Republish",
