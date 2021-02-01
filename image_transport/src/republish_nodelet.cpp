@@ -54,10 +54,14 @@ protected:
   boost::shared_ptr<PublisherPlugin> pub_plugin_;
   Subscriber sub_;
   std::string in_transport_, out_transport_;
+  int in_queue_size_, out_queue_size_;
 
   virtual void onInit()
   {
     NodeletLazy::onInit();
+
+    pnh_->param<int>("in_queue_size", in_queue_size_, 1);
+    pnh_->param<int>("out_queue_size", out_queue_size_, 1);
 
     if (!pnh_->getParam("in_transport", in_transport_))
     {
@@ -70,7 +74,7 @@ protected:
 
     if (out_transport_.empty())
     {
-      pub_ = advertiseImage(*pnh_, "out", 1);
+      pub_ = advertiseImage(*pnh_, "out", out_queue_size_);
     }
     else
     {
@@ -79,7 +83,7 @@ protected:
       std::string lookup_name = PublisherPlugin::getLookupName(out_transport_);
       pub_plugin_ = loader_->createInstance(lookup_name);
 
-      advertiseImage(*pnh_, "out", 1, boost::weak_ptr<PublisherPlugin>(pub_plugin_));
+      advertiseImage(*pnh_, "out", out_queue_size_, boost::weak_ptr<PublisherPlugin>(pub_plugin_));
     }
 
     onInitPostProcess();
@@ -100,7 +104,7 @@ protected:
       typedef void (Publisher::*PublishMemFn)(const sensor_msgs::ImageConstPtr&) const;
       PublishMemFn pub_mem_fn = &Publisher::publish;
       sub_ = it_->subscribe(
-          in_topic, 1,
+          in_topic, in_queue_size_,
           boost::bind(pub_mem_fn, &pub_, _1),
           ros::VoidPtr(), in_transport_);
     }
@@ -109,7 +113,7 @@ protected:
       typedef void (PublisherPlugin::*PublishMemFn)(const sensor_msgs::ImageConstPtr&) const;
       PublishMemFn pub_mem_fn = &PublisherPlugin::publish;
       sub_ = it_->subscribe(
-          in_topic, 1,
+          in_topic, in_queue_size_,
           boost::bind(pub_mem_fn, pub_plugin_.get(), _1),
           pub_plugin_, in_transport_);
     }
