@@ -80,7 +80,6 @@ void remapToPrivate(const nodelet::M_string& src, nodelet::M_string& dst)
   }
 }
 
-
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "image_republisher", ros::init_options::AnonymousName);
