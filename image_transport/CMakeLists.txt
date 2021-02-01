@@ -43,8 +43,12 @@ target_link_libraries(${PROJECT_NAME}
 add_library(${PROJECT_NAME}_plugins src/manifest.cpp src/raw_publisher.cpp)
 target_link_libraries(${PROJECT_NAME}_plugins ${PROJECT_NAME})
 
+# republish nodelet
+add_library(${PROJECT_NAME}_nodelet src/republish_nodelet.cpp)
+target_link_libraries(${PROJECT_NAME}_nodelet ${PROJECT_NAME} ${catkin_LIBRARIES})
+
 # Install plugin DLL to ${CATKIN_PACKAGE_LIB_DESTINATION} according to the path in default_plugins.xml
-install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_plugins
+install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_plugins ${PROJECT_NAME}_nodelet
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -56,7 +60,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
 
 # add two execs
 add_executable(republish src/republish.cpp)
-target_link_libraries(republish ${PROJECT_NAME})
+target_link_libraries(republish ${PROJECT_NAME} ${PROJECT_NAME}_nodelet)
 
 add_executable(list_transports src/list_transports.cpp)
 target_link_libraries(list_transports
