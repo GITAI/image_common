@@ -1,18 +1,21 @@
 version: 2.1
 
 commands:
-  test_ros:
+  run_tests:
     description: 'Build and test ROS packages'
     parameters:
       rosinstall_file:
         type: string
         default: .travis.rosinstall
+      ccache_prefix:
+        type: string
+        default: cache-melodic
     steps:
       - restore_cache:
           keys:
-            - ccache-{{ .Branch }}-{{ .Revision }}
-            - ccache-{{ .Branch }}-
-            - ccache-
+            - <<parameters.ccache_prefix>>-{{ .Branch }}-{{ .Revision }}
+            - <<parameters.ccache_prefix>>-{{ .Branch }}-
+            - <<parameters.ccache_prefix>>-
       - run:
           # Install git and ssh before checkout. Because larger
           name: install git and ssh
@@ -45,6 +48,7 @@ commands:
           command: |
             source `find /opt/ros -name setup.bash | sort | head -1`
             rosdep update
+            apt-get update -qq
             rosdep install --from-paths .. --ignore-src -rny || true
       - run:
           name: catkin init
@@ -62,12 +66,13 @@ commands:
           name: Run Tests
           command: |
             source `find /opt/ros -name setup.bash | sort | head -1`
+            TARGET_PKGS=$(catkin_topological_order . --only-names)
             cd ../..
-            catkin run_tests -j4 --no-deps --no-status --summarize $(cd src && catkin_topological_order . --only-names)
+            catkin run_tests -j4 --no-deps --no-status --summarize "${TARGET_PKGS[@]}"
             catkin_test_results --all --verbose
 
       - save_cache:
-          key: ccache-{{ .Branch }}-{{ .Revision }}
+          key: <<parameters.ccache_prefix>>-{{ .Branch }}-{{ .Revision }}
           paths:
             - ~/.ccache
 
@@ -77,13 +82,15 @@ jobs:
       - image: gitaiinc/gitai-ci:melodic
     working_directory: ~/src/project
     steps:
-      - test_ros
+      - run_tests:
+          ccache_prefix: cccahe-melodic
   noetic:
     docker:
       - image: gitaiinc/gitai-ci:noetic
     working_directory: ~/src/project
     steps:
-      - test_ros
+      - run_tests:
+          ccache_prefix: cccahe-noetic
 
 workflows:
   tests:
