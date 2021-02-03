@@ -45,6 +45,7 @@ commands:
           command: |
             source `find /opt/ros -name setup.bash | sort | head -1`
             rosdep update
+            apt-get update -qq
             rosdep install --from-paths .. --ignore-src -rny || true
       - run:
           name: catkin init
