@@ -266,7 +266,7 @@ protected:
    * @param latch set true if latch topic publication.
    * @param transport transport name for advertised topic
    */
-  boost::shared_ptr<PublisherPlugin>
+  void
   advertiseImage(ros::NodeHandle& nh,
                  const std::string& topic,
                  int queue_size,
