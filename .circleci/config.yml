@@ -1,99 +1,68 @@
 version: 2.1
 
-commands:
-  run_tests:
-    description: 'Build and test ROS packages'
-    parameters:
-      rosinstall_file:
-        type: string
-        default: .travis.rosinstall
-      ccache_prefix:
-        type: string
-        default: cache-melodic
-    steps:
-      - restore_cache:
-          keys:
-            - <<parameters.ccache_prefix>>-{{ .Branch }}-{{ .Revision }}
-            - <<parameters.ccache_prefix>>-{{ .Branch }}-
-            - <<parameters.ccache_prefix>>-
-      - run:
-          # Install git and ssh before checkout. Because larger
-          name: install git and ssh
-          command: |
-            # Creat .ssh/config in order to disable host key prompt
-            mkdir -p ~/.ssh
-            echo "Host *" >> ~/.ssh/config
-            echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-      - run:
-          name: Larger ccache storage
-          command: |
-            ccache -M 5G
-      - checkout
-      - add_ssh_keys
-      - run:
-          name: update submodules (if needed)
-          command: |
-            git submodule update --init
-      - run:
-          name: Clone other repositories
-          command: |
-            if [ -n "<<parameters.rosinstall_file>>" -a -e <<parameters.rosinstall_file>> ]; then
-              cd ..
-              wstool init --shallow
-              wstool merge project/<<parameters.rosinstall_file>>
-              wstool update -j10
-            fi
-      - run:
-          name: rosdep install
-          command: |
-            source `find /opt/ros -name setup.bash | sort | head -1`
-            rosdep update
-            apt-get update -qq
-            rosdep install --from-paths .. --ignore-src -rny || true
-      - run:
-          name: catkin init
-          command: |
-            cd ../..
-            catkin init
-            catkin config --extend /opt/ros/$ROS_DISTRO
-            catkin config --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache
-      - run:
-          name: Build
-          command: |
-            cd ../..
-            catkin build --no-status -j4 --summarize
-      - run:
-          name: Run Tests
-          command: |
-            source `find /opt/ros -name setup.bash | sort | head -1`
-            TARGET_PKGS=$(catkin_topological_order . --only-names)
-            cd ../..
-            catkin run_tests -j4 --no-deps --no-status --summarize "${TARGET_PKGS[@]}"
-            catkin_test_results --all --verbose
-
-      - save_cache:
-          key: <<parameters.ccache_prefix>>-{{ .Branch }}-{{ .Revision }}
-          paths:
-            - ~/.ccache
+orbs:
+  slack: circleci/slack@3.4.2
+  gitai: gitai/gitai_orb@volatile
 
 jobs:
+  lint:
+    docker:
+      - image: gitaiinc/gitai-style
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASSWORD
+    steps:
+      - gitai/lint
+      - slack/status
+
   melodic:
     docker:
       - image: gitaiinc/gitai-ci:melodic
-    working_directory: ~/src/project
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASSWORD
     steps:
-      - run_tests:
-          ccache_prefix: cccahe-melodic
+      - gitai/test:
+          cache_prefix: cache-melodic
+          catkin_install: true
+      - slack/status
+
   noetic:
     docker:
       - image: gitaiinc/gitai-ci:noetic
-    working_directory: ~/src/project
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASSWORD
     steps:
-      - run_tests:
-          ccache_prefix: cccahe-noetic
+      - gitai/test:
+          cache_prefix: cache-noetic
+          catkin_install: true
+      - slack/status
 
+  lint-clang-tidy:
+    docker:
+      - image: gitaiinc/gitai-style
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASSWORD
+    steps:
+      - gitai/lint_clang_tidy
+      - slack/status
 workflows:
+  review:
+    jobs:
+      - lint:
+          context: gitai_ci
   tests:
     jobs:
-      - melodic
-      - noetic
+      - melodic:
+          context: gitai_ci
+      - noetic:
+          context: gitai_ci
+      - lint-clang-tidy:
+          context: gitai_ci
+          requires:
+            - noetic
+          pre-steps:
+            - attach_workspace:
+                at: ~/
